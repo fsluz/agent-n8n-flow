@@ -1,0 +1,386 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-feedback",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e9625b43-bbed-4101-b79b-56fd17637caa",
+      "name": "Webhook",
+      "webhookId": "64592c23-985b-454b-995a-0e4246d3e7e0"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_NGROK_URL/sentimento",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "texto",
+              "value": "={{ $json.body.Body }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "cbb3945f-b5cc-4374-9009-f02bd3da6250",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = items[0];\nconst dados = item.json;\n\nconst sentimento = (dados.sentimento || \"\").toLowerCase().trim();\nconst estrelas = Number(dados.estrelas);\n\nlet acao = dados.acao;\n\nif (sentimento === \"negativo\" && estrelas <= 2) {\n  acao = \"ALERTA\";\n} else if (sentimento === \"positivo\" && estrelas >= 4) {\n  acao = \"ELOGIO\";\n} else {\n  acao = \"NEUTRO\";\n}\n\nlet mensagem_resposta = \"\";\n\nif (acao === \"ALERTA\") {\n  mensagem_resposta = `Recebemos seu feedback. Sentimento: Negativo (${estrelas} estrela(s)). O professor será notificado!`;\n} else if (acao === \"ELOGIO\") {\n  mensagem_resposta = `Que ótimo! Sentimento: Positivo (${estrelas} estrela(s)). Obrigado!`;\n} else {\n  mensagem_resposta = `Feedback recebido! Sentimento: Neutro (${estrelas} estrela(s)). Obrigado!`;\n}\n\nitem.json.acao_final = acao;\nitem.json.mensagem_resposta = mensagem_resposta;\n\nreturn [item];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "1d970e30-d7c1-4ecf-8bae-4bf4c99ccbdc",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d7e0afa7-5a65-4c4a-9555-762ba3af78c9",
+              "leftValue": "={{ $json.acao_final }}",
+              "rightValue": "ALERTA",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        608,
+        0
+      ],
+      "id": "b363a8d9-7935-4f4e-9f4b-4f8e6dd861dd",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:+YOUR_PHONE_NUMBER"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $json[\"mensagem_resposta\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        864,
+        -208
+      ],
+      "id": "f110344d-a644-42d7-8947-538ea030e1ed",
+      "name": "HTTP Request1",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "OGDJzy5vR13GkykJ",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "howeveriska@gmail.com",
+        "subject": "ALERTA: Feedback negativo recebido",
+        "message": "=Aluno: {{$json[\"From\"]}} | Texto: {{$json[\"texto\"]}} | Ação: {{$json[\"acao_final\"]}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        -336
+      ],
+      "id": "e2259243-fe12-4aa2-90e4-d1ca12cf56da",
+      "name": "Send a message",
+      "webhookId": "2bf7faa2-f9d4-4b69-b1bf-033cf5deae5a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "LrRTJKnO3ahY9ytY",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_ACCOUNT_SID/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "whatsapp:+14155238886"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:+55991736067"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $json[\"mensagem_resposta\"] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        944,
+        -16
+      ],
+      "id": "d6471cea-5d9d-44e0-9a9b-466f17f98c97",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "OGDJzy5vR13GkykJ",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_URL",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_URL",
+          "mode": "url"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "texto": "={{ $json.mensagem_resposta }}",
+            "sentimento": "={{ $json.sentimento }}",
+            "acao": "={{ $json.acao_final }}",
+            "estrelas": "={{ $json.estrelas }}",
+            "timestamp": "={{ $now }}"
+          },
+          "matchingColumns": [
+            "timestamp, numero_aluno, texto, sentimento, estrelas, acao"
+          ],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "numero_aluno",
+              "displayName": "numero_aluno",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "texto",
+              "displayName": "texto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sentimento",
+              "displayName": "sentimento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estrelas",
+              "displayName": "estrelas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "acao",
+              "displayName": "acao",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        160
+      ],
+      "id": "b7b0b86f-aa93-40a2-864b-321616c207e8",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rKH8ek7soMjIbEsf",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c033019b-c326-4836-8d5a-152800c47b09",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2c2fd7c44b0f44cff12fb6dac01d468d187e84010e152f2178a838b99bb07f15"
+  },
+  "id": "8G8zNrQqvs0qbG2W",
+  "tags": []
+}
